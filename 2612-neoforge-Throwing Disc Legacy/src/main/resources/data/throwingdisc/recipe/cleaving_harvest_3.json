@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "P": "minecraft:diamond_pickaxe",
+    "B": "minecraft:book",
+    "L": "minecraft:lapis_lazuli"
+  },
+  "pattern": [
+    " P ",
+    "LBL",
+    " L "
+  ],
+  "result": {
+    "count": 1,
+    "id": "minecraft:enchanted_book",
+    "components": {
+      "minecraft:stored_enchantments": {
+        "throwingdisc:cleaving_harvest": 3
+      }
+    }
+  }
+}

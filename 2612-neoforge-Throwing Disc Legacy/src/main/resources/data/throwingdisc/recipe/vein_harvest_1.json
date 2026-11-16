@@ -1,0 +1,23 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "key": {
+    "S": "minecraft:netherite_scrap",
+    "B": "minecraft:book",
+    "L": "minecraft:lapis_lazuli"
+  },
+  "pattern": [
+    " S ",
+    "LBL",
+    " L "
+  ],
+  "result": {
+    "count": 1,
+    "id": "minecraft:enchanted_book",
+    "components": {
+      "minecraft:stored_enchantments": {
+        "throwingdisc:vein_harvest": 1
+      }
+    }
+  }
+}
