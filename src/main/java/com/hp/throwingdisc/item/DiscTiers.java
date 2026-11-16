@@ -26,8 +26,8 @@ public enum DiscTiers implements Tier {
     }
 
     @Override
-    public TagKey<Block> getIncorrectBlocksForDrops() {
-        return BlockTags.INCORRECT_FOR_STONE_TOOL;
+    public int getLevel() {
+        return 1;
     }
 
     @Override
@@ -38,5 +38,10 @@ public enum DiscTiers implements Tier {
     @Override
     public Ingredient getRepairIngredient() {
         return Ingredient.of(ModTags.COPPER_TOOL_MATERIALS);
+    }
+
+    @Override
+    public TagKey<Block> getTag() {
+        return BlockTags.NEEDS_STONE_TOOL;
     }
 }

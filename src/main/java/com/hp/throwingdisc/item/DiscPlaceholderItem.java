@@ -8,8 +8,6 @@ import java.util.UUID;
 import javax.annotation.Nullable;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.Component;
@@ -26,10 +24,10 @@ import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.minecraft.world.item.component.CustomData;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
-import net.neoforged.neoforge.event.entity.player.PlayerContainerEvent;
+import net.minecraftforge.event.entity.player.PlayerContainerEvent;
+import net.minecraftforge.registries.ForgeRegistries;
 
 public class DiscPlaceholderItem extends Item {
     public static final String TAG_DISC_UUID = "DiscUuid";
@@ -42,19 +40,22 @@ public class DiscPlaceholderItem extends Item {
 
     public static ItemStack createFor(ThrownDiscEntity discEntity, ItemStack originalDisc, long gameTime) {
         ItemStack placeholder = new ItemStack(ModItems.DISC_PLACEHOLDER.get());
-        CompoundTag tag = new CompoundTag();
+        CompoundTag tag = placeholder.getOrCreateTag();
         tag.putUUID(TAG_DISC_UUID, discEntity.getUUID());
-        tag.putString(TAG_DISC_ITEM, BuiltInRegistries.ITEM.getKey(originalDisc.getItem()).toString());
+        ResourceLocation key = ForgeRegistries.ITEMS.getKey(originalDisc.getItem());
+        if (key != null) {
+            tag.putString(TAG_DISC_ITEM, key.toString());
+        }
         tag.putLong(TAG_SPAWN_TIME, gameTime);
-        CustomData.set(DataComponents.CUSTOM_DATA, placeholder, tag);
         return placeholder;
     }
 
     public static ItemStack createClientPreview(ItemStack originalDisc) {
         ItemStack placeholder = new ItemStack(ModItems.DISC_PLACEHOLDER.get());
-        CompoundTag tag = new CompoundTag();
-        tag.putString(TAG_DISC_ITEM, BuiltInRegistries.ITEM.getKey(originalDisc.getItem()).toString());
-        CustomData.set(DataComponents.CUSTOM_DATA, placeholder, tag);
+        ResourceLocation key = ForgeRegistries.ITEMS.getKey(originalDisc.getItem());
+        if (key != null) {
+            placeholder.getOrCreateTag().putString(TAG_DISC_ITEM, key.toString());
+        }
         return placeholder;
     }
 
@@ -63,12 +64,8 @@ public class DiscPlaceholderItem extends Item {
         if (!stack.is(ModItems.DISC_PLACEHOLDER.get())) {
             return null;
         }
-        CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-        if (data.isEmpty()) {
-            return null;
-        }
-        CompoundTag tag = data.copyTag();
-        return tag.hasUUID(TAG_DISC_UUID) ? tag.getUUID(TAG_DISC_UUID) : null;
+        CompoundTag tag = stack.getTag();
+        return tag != null && tag.hasUUID(TAG_DISC_UUID) ? tag.getUUID(TAG_DISC_UUID) : null;
     }
 
     public static boolean matches(ItemStack stack, UUID discUuid) {
@@ -123,13 +120,8 @@ public class DiscPlaceholderItem extends Item {
             stack.setCount(0);
             return;
         }
-        CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-        if (data.isEmpty()) {
-            stack.setCount(0);
-            return;
-        }
-        CompoundTag tag = data.copyTag();
-        if (!tag.hasUUID(TAG_DISC_UUID)) {
+        CompoundTag tag = stack.getTag();
+        if (tag == null || !tag.hasUUID(TAG_DISC_UUID)) {
             stack.setCount(0);
             return;
         }
@@ -170,13 +162,7 @@ public class DiscPlaceholderItem extends Item {
     }
 
     @Override
-    @SuppressWarnings("deprecation")
     public boolean canFitInsideContainerItems() {
-        return false;
-    }
-
-    @Override
-    public boolean canFitInsideContainerItems(ItemStack stack) {
         return false;
     }
 
@@ -190,17 +176,14 @@ public class DiscPlaceholderItem extends Item {
 
     @Override
     public Component getName(ItemStack stack) {
-        CustomData data = stack.getOrDefault(DataComponents.CUSTOM_DATA, CustomData.EMPTY);
-        if (!data.isEmpty()) {
-            CompoundTag tag = data.copyTag();
-            if (tag.contains(TAG_DISC_ITEM, Tag.TAG_STRING)) {
-                ResourceLocation id = ResourceLocation.tryParse(tag.getString(TAG_DISC_ITEM));
-                if (id != null && BuiltInRegistries.ITEM.containsKey(id)) {
-                    Item discItem = BuiltInRegistries.ITEM.get(id);
-                    if (discItem != this) {
-                        return Component.translatable("item.throwingdisc.disc_placeholder.named", discItem.getDescription())
-                            .withStyle(ChatFormatting.GRAY);
-                    }
+        CompoundTag tag = stack.getTag();
+        if (tag != null && tag.contains(TAG_DISC_ITEM, Tag.TAG_STRING)) {
+            ResourceLocation id = ResourceLocation.tryParse(tag.getString(TAG_DISC_ITEM));
+            if (id != null && ForgeRegistries.ITEMS.containsKey(id)) {
+                Item discItem = ForgeRegistries.ITEMS.getValue(id);
+                if (discItem != null && discItem != this) {
+                    return Component.translatable("item.throwingdisc.disc_placeholder.named", discItem.getDescription())
+                        .withStyle(ChatFormatting.GRAY);
                 }
             }
         }
@@ -208,7 +191,7 @@ public class DiscPlaceholderItem extends Item {
     }
 
     @Override
-    public void appendHoverText(ItemStack stack, Item.TooltipContext context, List<Component> tooltip, TooltipFlag flag) {
+    public void appendHoverText(ItemStack stack, @Nullable Level level, List<Component> tooltip, TooltipFlag flag) {
         tooltip.add(Component.translatable("tooltip.throwingdisc.disc_placeholder").withStyle(ChatFormatting.DARK_GRAY));
     }
 }

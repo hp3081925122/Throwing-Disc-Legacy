@@ -32,8 +32,8 @@ public final class ConfiguredDiscTier implements Tier {
     }
 
     @Override
-    public TagKey<Block> getIncorrectBlocksForDrops() {
-        return this.delegate.getIncorrectBlocksForDrops();
+    public int getLevel() {
+        return this.delegate.getLevel();
     }
 
     @Override
@@ -44,5 +44,10 @@ public final class ConfiguredDiscTier implements Tier {
     @Override
     public Ingredient getRepairIngredient() {
         return this.delegate.getRepairIngredient();
+    }
+
+    @Override
+    public TagKey<Block> getTag() {
+        return this.delegate.getTag();
     }
 }

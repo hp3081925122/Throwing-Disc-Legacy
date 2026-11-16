@@ -20,14 +20,17 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TieredItem;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.item.enchantment.Enchantments;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.GameMasterBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.gameevent.GameEvent;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.common.Tags;
-import net.neoforged.neoforge.event.level.BlockEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.Tags;
+import net.minecraftforge.common.TierSortingRegistry;
+import net.minecraftforge.event.level.BlockEvent;
 import org.slf4j.Logger;
 
 public final class VeinHarvestHelper {
@@ -56,7 +59,7 @@ public final class VeinHarvestHelper {
         }
         return origin.getTags().anyMatch(tag -> {
             ResourceLocation id = tag.location();
-            if ("c".equals(id.getNamespace()) && id.getPath().startsWith("ores/")) {
+            if ("forge".equals(id.getNamespace()) && id.getPath().startsWith("ores/")) {
                 return candidate.is(tag);
             }
             if ("minecraft".equals(id.getNamespace()) && id.getPath().endsWith("_ores")) {
@@ -91,13 +94,14 @@ public final class VeinHarvestHelper {
             return;
         }
 
-        int cleavingLevel = ModEnchantments.getLevel(serverLevel, stack, ModEnchantments.CLEAVING_HARVEST);
-        int veinLevel = ModEnchantments.getLevel(serverLevel, stack, ModEnchantments.VEIN_HARVEST);
+        int cleavingLevel = ModEnchantments.getLevel(stack, ModEnchantments.CLEAVING_HARVEST);
+        int veinLevel = ModEnchantments.getLevel(stack, ModEnchantments.VEIN_HARVEST);
         if (cleavingLevel <= 0 || veinLevel <= 0) {
             return;
         }
 
-        if (stack.getItem() instanceof TieredItem tieredItem && originState.is(tieredItem.getTier().getIncorrectBlocksForDrops())) {
+        if (stack.getItem() instanceof TieredItem tieredItem
+            && !TierSortingRegistry.isCorrectTierForDrops(tieredItem.getTier(), originState)) {
             return;
         }
 
@@ -166,7 +170,7 @@ public final class VeinHarvestHelper {
                                 continue;
                             }
                             if (stack.getItem() instanceof TieredItem tieredItem
-                                && nextState.is(tieredItem.getTier().getIncorrectBlocksForDrops())) {
+                                && !TierSortingRegistry.isCorrectTierForDrops(tieredItem.getTier(), nextState)) {
                                 continue;
                             }
                             if (player.blockActionRestricted(serverLevel, nextPos, player.gameMode.getGameModeForPlayer())
@@ -175,7 +179,7 @@ public final class VeinHarvestHelper {
                             }
 
                             BlockEvent.BreakEvent breakEvent = new BlockEvent.BreakEvent(serverLevel, nextPos, nextState, player);
-                            NeoForge.EVENT_BUS.post(breakEvent);
+                            MinecraftForge.EVENT_BUS.post(breakEvent);
                             if (breakEvent.isCanceled()) {
                                 continue;
                             }
@@ -184,15 +188,17 @@ public final class VeinHarvestHelper {
                             List<ItemStack> drops = creative
                                 ? List.of()
                                 : Block.getDrops(nextState, serverLevel, nextPos, blockEntity, player, stack);
+                            int fortune = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_FORTUNE, stack);
+                            int silk = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.SILK_TOUCH, stack);
                             int xp = creative
                                 ? 0
-                                : nextState.getExpDrop(serverLevel, nextPos, blockEntity, player, stack);
+                                : nextState.getExpDrop(serverLevel, serverLevel.getRandom(), nextPos, fortune, silk);
 
-                            BlockState adjusted = nextState.getBlock().playerWillDestroy(serverLevel, nextPos, nextState, player);
+                            nextState.getBlock().playerWillDestroy(serverLevel, nextPos, nextState, player);
                             if (brokenCount < MAX_PARTICLE_BLOCKS) {
                                 serverLevel.levelEvent(2001, nextPos, Block.getId(nextState));
                             }
-                            boolean removed = adjusted.onDestroyedByPlayer(
+                            boolean removed = nextState.onDestroyedByPlayer(
                                 serverLevel,
                                 nextPos,
                                 player,
@@ -202,7 +208,7 @@ public final class VeinHarvestHelper {
                             if (!removed) {
                                 continue;
                             }
-                            adjusted.getBlock().destroy(serverLevel, nextPos, adjusted);
+                            nextState.getBlock().destroy(serverLevel, nextPos, nextState);
                             serverLevel.gameEvent(GameEvent.BLOCK_DESTROY, nextPos, GameEvent.Context.of(player, nextState));
 
                             if (!creative) {
@@ -210,7 +216,7 @@ public final class VeinHarvestHelper {
                                     mergeDrop(collectedDrops, drop);
                                 }
                                 collectedXp += xp;
-                                stack.hurtAndBreak(1, player, EquipmentSlot.MAINHAND);
+                                stack.hurtAndBreak(1, player, p -> p.broadcastBreakEvent(EquipmentSlot.MAINHAND));
                             }
 
                             brokenCount++;
@@ -259,7 +265,7 @@ public final class VeinHarvestHelper {
         }
         ItemStack remaining = stack.copy();
         for (ItemStack existing : list) {
-            if (ItemStack.isSameItemSameComponents(existing, remaining) && existing.getCount() < existing.getMaxStackSize()) {
+            if (ItemStack.isSameItemSameTags(existing, remaining) && existing.getCount() < existing.getMaxStackSize()) {
                 int move = Math.min(existing.getMaxStackSize() - existing.getCount(), remaining.getCount());
                 existing.grow(move);
                 remaining.shrink(move);

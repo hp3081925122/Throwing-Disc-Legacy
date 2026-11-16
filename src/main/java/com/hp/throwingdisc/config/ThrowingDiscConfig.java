@@ -2,28 +2,22 @@ package com.hp.throwingdisc.config;
 
 import java.util.EnumMap;
 import java.util.Map;
-import net.neoforged.fml.ModContainer;
-import net.neoforged.fml.config.ModConfig;
-import net.neoforged.neoforge.common.ModConfigSpec;
+import net.minecraftforge.common.ForgeConfigSpec;
+import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.config.ModConfig;
 
 public final class ThrowingDiscConfig {
-    public static final Startup STARTUP;
-    public static final ModConfigSpec STARTUP_SPEC;
     public static final Common COMMON;
-    public static final ModConfigSpec COMMON_SPEC;
+    public static final ForgeConfigSpec COMMON_SPEC;
     public static final Client CLIENT;
-    public static final ModConfigSpec CLIENT_SPEC;
+    public static final ForgeConfigSpec CLIENT_SPEC;
 
     static {
-        var startup = new ModConfigSpec.Builder().configure(Startup::new);
-        STARTUP = startup.getLeft();
-        STARTUP_SPEC = startup.getRight();
-
-        var common = new ModConfigSpec.Builder().configure(Common::new);
+        var common = new ForgeConfigSpec.Builder().configure(Common::new);
         COMMON = common.getLeft();
         COMMON_SPEC = common.getRight();
 
-        var client = new ModConfigSpec.Builder().configure(Client::new);
+        var client = new ForgeConfigSpec.Builder().configure(Client::new);
         CLIENT = client.getLeft();
         CLIENT_SPEC = client.getRight();
     }
@@ -31,37 +25,17 @@ public final class ThrowingDiscConfig {
     private ThrowingDiscConfig() {
     }
 
-    public static void register(ModContainer container) {
-        container.registerConfig(ModConfig.Type.STARTUP, STARTUP_SPEC);
-        container.registerConfig(ModConfig.Type.COMMON, COMMON_SPEC);
-        container.registerConfig(ModConfig.Type.CLIENT, CLIENT_SPEC);
-    }
-
-    public static final class Startup {
-        private final Map<DiscDefaults, StartupStats> stats = new EnumMap<>(DiscDefaults.class);
-
-        Startup(ModConfigSpec.Builder builder) {
-            builder.comment(
-                "各材质圆盘基础物品数值，修改后需重启游戏",
-                "Base item stats per disc material, restart required after changes"
-            ).push("discs");
-            for (DiscDefaults defaults : DiscDefaults.values()) {
-                this.stats.put(defaults, new StartupStats(builder, defaults));
-            }
-            builder.pop();
-        }
-
-        public StartupStats stats(DiscDefaults defaults) {
-            return this.stats.get(defaults);
-        }
+    public static void register(ModLoadingContext context) {
+        context.registerConfig(ModConfig.Type.COMMON, COMMON_SPEC);
+        context.registerConfig(ModConfig.Type.CLIENT, CLIENT_SPEC);
     }
 
     public static final class StartupStats {
-        public final ModConfigSpec.IntValue durability;
-        public final ModConfigSpec.DoubleValue meleeDamageBonus;
-        public final ModConfigSpec.DoubleValue attackSpeedBonus;
+        public final ForgeConfigSpec.IntValue durability;
+        public final ForgeConfigSpec.DoubleValue meleeDamageBonus;
+        public final ForgeConfigSpec.DoubleValue attackSpeedBonus;
 
-        StartupStats(ModConfigSpec.Builder builder, DiscDefaults defaults) {
+        StartupStats(ForgeConfigSpec.Builder builder, DiscDefaults defaults) {
             builder.push(defaults.id());
             this.durability = builder.comment("最大耐久度", "Maximum durability")
                 .defineInRange("durability", defaults.durability(), 1, 1000000);
@@ -74,38 +48,39 @@ public final class ThrowingDiscConfig {
     }
 
     public static final class Common {
-        public final ModConfigSpec.BooleanValue allowOffhandThrow;
-        public final ModConfigSpec.BooleanValue useSlotPlaceholder;
-        public final ModConfigSpec.BooleanValue pierceMultipleTargets;
-        public final ModConfigSpec.DoubleValue returnDamageMultiplier;
-        public final ModConfigSpec.DoubleValue returnSpeedMultiplier;
-        public final ModConfigSpec.IntValue maxReturnTicks;
+        public final ForgeConfigSpec.BooleanValue allowOffhandThrow;
+        public final ForgeConfigSpec.BooleanValue useSlotPlaceholder;
+        public final ForgeConfigSpec.BooleanValue pierceMultipleTargets;
+        public final ForgeConfigSpec.DoubleValue returnDamageMultiplier;
+        public final ForgeConfigSpec.DoubleValue returnSpeedMultiplier;
+        public final ForgeConfigSpec.IntValue maxReturnTicks;
 
-        public final ModConfigSpec.IntValue ricochetExtraBouncesPerLevel;
-        public final ModConfigSpec.DoubleValue ricochetExtraRangePerLevel;
-        public final ModConfigSpec.DoubleValue ricochetBounceDamageBonusPerLevel;
-        public final ModConfigSpec.DoubleValue maxRicochetDamageMultiplier;
-        public final ModConfigSpec.DoubleValue tailwindSpeedBonusPerLevel;
-        public final ModConfigSpec.DoubleValue tailwindReturnBonusPerLevel;
-        public final ModConfigSpec.DoubleValue reboundEdgeBonusDamagePerLevel;
-        public final ModConfigSpec.DoubleValue magneticRecallRadius;
-        public final ModConfigSpec.IntValue cleavingBlocksPerLevel;
-        public final ModConfigSpec.DoubleValue cleavingBaseHardness;
-        public final ModConfigSpec.DoubleValue cleavingHardnessPerLevel;
-        public final ModConfigSpec.BooleanValue cleavingBreakBlockEntities;
-        public final ModConfigSpec.BooleanValue cleavingAllowDispenser;
-        public final ModConfigSpec.IntValue veinHarvestBlocksPerLevel;
+        public final ForgeConfigSpec.IntValue ricochetExtraBouncesPerLevel;
+        public final ForgeConfigSpec.DoubleValue ricochetExtraRangePerLevel;
+        public final ForgeConfigSpec.DoubleValue ricochetBounceDamageBonusPerLevel;
+        public final ForgeConfigSpec.DoubleValue maxRicochetDamageMultiplier;
+        public final ForgeConfigSpec.DoubleValue tailwindSpeedBonusPerLevel;
+        public final ForgeConfigSpec.DoubleValue tailwindReturnBonusPerLevel;
+        public final ForgeConfigSpec.DoubleValue reboundEdgeBonusDamagePerLevel;
+        public final ForgeConfigSpec.DoubleValue magneticRecallRadius;
+        public final ForgeConfigSpec.IntValue cleavingBlocksPerLevel;
+        public final ForgeConfigSpec.DoubleValue cleavingBaseHardness;
+        public final ForgeConfigSpec.DoubleValue cleavingHardnessPerLevel;
+        public final ForgeConfigSpec.BooleanValue cleavingBreakBlockEntities;
+        public final ForgeConfigSpec.BooleanValue cleavingAllowDispenser;
+        public final ForgeConfigSpec.IntValue veinHarvestBlocksPerLevel;
 
-        public final ModConfigSpec.BooleanValue enableLootInjection;
-        public final ModConfigSpec.BooleanValue lootTrialChambers;
-        public final ModConfigSpec.BooleanValue lootVillageWeaponsmith;
-        public final ModConfigSpec.BooleanValue lootBastionTreasure;
-        public final ModConfigSpec.BooleanValue lootEndCityTreasure;
-        public final ModConfigSpec.BooleanValue lootBuriedTreasure;
+        public final ForgeConfigSpec.BooleanValue enableLootInjection;
+        public final ForgeConfigSpec.BooleanValue lootTrialChambers;
+        public final ForgeConfigSpec.BooleanValue lootVillageWeaponsmith;
+        public final ForgeConfigSpec.BooleanValue lootBastionTreasure;
+        public final ForgeConfigSpec.BooleanValue lootEndCityTreasure;
+        public final ForgeConfigSpec.BooleanValue lootBuriedTreasure;
 
+        private final Map<DiscDefaults, StartupStats> startupStats = new EnumMap<>(DiscDefaults.class);
         private final Map<DiscDefaults, FlightStats> flightStats = new EnumMap<>(DiscDefaults.class);
 
-        Common(ModConfigSpec.Builder builder) {
+        Common(ForgeConfigSpec.Builder builder) {
             builder.comment(
                 "投掷圆盘通用战斗与飞行机制",
                 "General combat and flight mechanics for throwing discs"
@@ -124,6 +99,15 @@ public final class ThrowingDiscConfig {
                 .defineInRange("return_speed_multiplier", 1.0, 0.2, 5.0);
             this.maxReturnTicks = builder.comment("返程最长持续刻数，超时将直接归还至玩家背包或脚下", "Maximum ticks spent returning before directly returning to inventory/feet")
                 .defineInRange("max_return_ticks", 200, 20, 2400);
+            builder.pop();
+
+            builder.comment(
+                "各材质圆盘基础物品数值",
+                "Base item stats per disc material"
+            ).push("item_stats");
+            for (DiscDefaults defaults : DiscDefaults.values()) {
+                this.startupStats.put(defaults, new StartupStats(builder, defaults));
+            }
             builder.pop();
 
             builder.comment(
@@ -167,8 +151,8 @@ public final class ThrowingDiscConfig {
                 .define("cleaving_break_block_entities", false);
             this.cleavingAllowDispenser = builder.comment("发射器射出的带旋刃采掘附魔圆盘是否允许破坏方块（同时受 mobGriefing 游戏规则约束）", "Allow dispenser-launched discs with Cleaving Harvest to break blocks (also requires mobGriefing)")
                 .define("cleaving_allow_dispenser", true);
-            this.veinHarvestBlocksPerLevel = builder.comment("连锁采集（Vein Harvest）每级触发矿脉连锁时最多额外破坏的相连同类矿石数", "Maximum connected same-type ore blocks broken per level of Vein Harvest")
-                .defineInRange("vein_harvest_blocks_per_level", 6, 1, 64);
+            this.veinHarvestBlocksPerLevel = builder.comment("连锁采集（Vein Harvest）每级额外连锁采掘的同类矿石方块数上限", "Extra connected ore blocks mined per level of Vein Harvest")
+                .defineInRange("vein_harvest_blocks_per_level", 16, 1, 128);
             builder.pop();
 
             builder.comment(
@@ -177,7 +161,7 @@ public final class ThrowingDiscConfig {
             ).push("loot");
             this.enableLootInjection = builder.comment("是否启用原版战利品箱生成投掷圆盘", "Enable injecting throwing discs into vanilla structure loot tables")
                 .define("enable_loot_injection", true);
-            this.lootTrialChambers = builder.comment("试炼密室宝箱与宝库辅助战利品", "Trial Chambers chests")
+            this.lootTrialChambers = builder.comment("试炼密室宝箱与宝库辅助战利品（仅 1.21+ 有效）", "Trial Chambers chests (1.21+ only)")
                 .define("trial_chambers", true);
             this.lootVillageWeaponsmith = builder.comment("村庄武器匠宝箱", "Village weaponsmith chests")
                 .define("village_weaponsmith", true);
@@ -190,19 +174,23 @@ public final class ThrowingDiscConfig {
             builder.pop();
         }
 
+        public StartupStats stats(DiscDefaults defaults) {
+            return this.startupStats.get(defaults);
+        }
+
         public FlightStats flight(DiscDefaults defaults) {
             return this.flightStats.get(defaults);
         }
     }
 
     public static final class FlightStats {
-        public final ModConfigSpec.DoubleValue thrownDamage;
-        public final ModConfigSpec.DoubleValue throwSpeed;
-        public final ModConfigSpec.DoubleValue maxRange;
-        public final ModConfigSpec.IntValue maxBounces;
-        public final ModConfigSpec.IntValue cooldownTicks;
+        public final ForgeConfigSpec.DoubleValue thrownDamage;
+        public final ForgeConfigSpec.DoubleValue throwSpeed;
+        public final ForgeConfigSpec.DoubleValue maxRange;
+        public final ForgeConfigSpec.IntValue maxBounces;
+        public final ForgeConfigSpec.IntValue cooldownTicks;
 
-        FlightStats(ModConfigSpec.Builder builder, DiscDefaults defaults) {
+        FlightStats(ForgeConfigSpec.Builder builder, DiscDefaults defaults) {
             builder.push(defaults.id());
             this.thrownDamage = builder.comment("投掷基础伤害", "Base thrown damage")
                 .defineInRange("thrown_damage", defaults.thrownDamage(), 0.5, 1024.0);
@@ -219,10 +207,10 @@ public final class ThrowingDiscConfig {
     }
 
     public static final class Client {
-        public final ModConfigSpec.DoubleValue spinDegreesPerTick;
-        public final ModConfigSpec.BooleanValue showBounceParticles;
+        public final ForgeConfigSpec.DoubleValue spinDegreesPerTick;
+        public final ForgeConfigSpec.BooleanValue showBounceParticles;
 
-        Client(ModConfigSpec.Builder builder) {
+        Client(ForgeConfigSpec.Builder builder) {
             builder.comment(
                 "投掷圆盘客户端渲染设置",
                 "Client rendering settings for throwing discs"

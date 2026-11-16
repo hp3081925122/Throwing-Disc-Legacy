@@ -11,8 +11,6 @@ import com.hp.throwingdisc.util.VeinHarvestHelper;
 import com.mojang.logging.LogUtils;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
-import it.unimi.dsi.fastutil.longs.LongSet;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -20,11 +18,9 @@ import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.core.particles.ParticleTypes;
-import net.minecraft.core.registries.Registries;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -35,7 +31,6 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
-import net.minecraft.tags.EntityTypeTags;
 import net.minecraft.util.Mth;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
@@ -43,14 +38,16 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ExperienceOrb;
 import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.MobType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.boss.EnderDragonPart;
 import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Shulker;
 import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.entity.projectile.AbstractHurtingProjectile;
 import net.minecraft.world.entity.projectile.ItemSupplier;
 import net.minecraft.world.entity.projectile.Projectile;
-import net.minecraft.world.entity.projectile.ProjectileDeflection;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TieredItem;
 import net.minecraft.world.item.enchantment.EnchantmentHelper;
@@ -66,9 +63,10 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
-import net.neoforged.neoforge.common.NeoForge;
-import net.neoforged.neoforge.event.EventHooks;
-import net.neoforged.neoforge.event.level.BlockEvent;
+import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.common.TierSortingRegistry;
+import net.minecraftforge.event.ForgeEventFactory;
+import net.minecraftforge.event.level.BlockEvent;
 import org.slf4j.Logger;
 
 public class ThrownDiscEntity extends Projectile implements ItemSupplier {
@@ -129,15 +127,16 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
     }
 
     @Override
-    protected void defineSynchedData(SynchedEntityData.Builder builder) {
-        builder.define(DATA_ITEM_STACK, new ItemStack(ModItems.IRON_THROWING_DISC.get()));
-        builder.define(DATA_RETURNING, false);
-        builder.define(DATA_CARGO_PREVIEW, ItemStack.EMPTY);
+    protected void defineSynchedData() {
+        this.entityData.define(DATA_ITEM_STACK, new ItemStack(ModItems.IRON_THROWING_DISC.get()));
+        this.entityData.define(DATA_RETURNING, false);
+        this.entityData.define(DATA_CARGO_PREVIEW, ItemStack.EMPTY);
     }
 
     public void configureFlight(float baseDamage, double initialSpeed, double maxRange, int maxBounces, boolean creativeOnly) {
         this.baseDamage = baseDamage;
         this.initialSpeed = initialSpeed;
+        this.returnSpeed = initialSpeed;
         this.maxRange = maxRange;
         this.maxBounces = maxBounces;
         this.creativePickupOnly = creativeOnly;
@@ -177,7 +176,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
     @Override
     public boolean fireImmune() {
         ItemStack stack = this.getItem();
-        return (!stack.isEmpty() && stack.getItem().components().has(DataComponents.FIRE_RESISTANT)) || super.fireImmune();
+        return (!stack.isEmpty() && stack.getItem().isFireResistant()) || super.fireImmune();
     }
 
     @Override
@@ -229,7 +228,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
 
         ItemStack stack = this.getItem();
-        boolean hasMagnetic = ModEnchantments.getLevel(this.level(), stack, ModEnchantments.MAGNETIC_CATCH) > 0;
+        boolean hasMagnetic = ModEnchantments.getLevel(stack, ModEnchantments.MAGNETIC_CATCH) > 0;
         if (hasMagnetic) {
             this.collectMagneticDropsAlongSegment(this.position(), this.position());
             Entity owner = this.getOwner();
@@ -272,7 +271,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
             ));
 
             if (blockHit.getType() != HitResult.Type.MISS) {
-                if (EventHooks.onProjectileImpact(this, blockHit)) {
+                if (ForgeEventFactory.onProjectileImpact(this, blockHit)) {
                     this.finishOutbound();
                     return;
                 }
@@ -307,7 +306,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                     currentPos = nextStart;
                     remainingMove = moveDir.scale(leftover * 0.95);
 
-                    int cleavingLevel = ModEnchantments.getLevel(serverLevel, this.getItem(), ModEnchantments.CLEAVING_HARVEST);
+                    int cleavingLevel = ModEnchantments.getLevel(this.getItem(), ModEnchantments.CLEAVING_HARVEST);
                     int maxBreakCount = cleavingLevel * ThrowingDiscConfig.COMMON.cleavingBlocksPerLevel.get();
                     boolean outOfDurability = !this.creativePickupOnly && ThrowingDiscItem.isTooDamagedToThrow(this.getItem());
                     if (this.blocksBroken >= maxBreakCount || outOfDurability || this.traveledDistance >= this.maxRange) {
@@ -369,7 +368,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
 
         ItemStack weaponStack = this.getItem();
-        int cleavingLevel = ModEnchantments.getLevel(serverLevel, weaponStack, ModEnchantments.CLEAVING_HARVEST);
+        int cleavingLevel = ModEnchantments.getLevel(weaponStack, ModEnchantments.CLEAVING_HARVEST);
         if (cleavingLevel <= 0) {
             return false;
         }
@@ -398,7 +397,8 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
             return false;
         }
 
-        if (weaponStack.getItem() instanceof TieredItem tieredItem && state.is(tieredItem.getTier().getIncorrectBlocksForDrops())) {
+        if (weaponStack.getItem() instanceof TieredItem tieredItem
+            && !TierSortingRegistry.isCorrectTierForDrops(tieredItem.getTier(), state)) {
             return false;
         }
 
@@ -409,27 +409,29 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                 return false;
             }
             BlockEvent.BreakEvent breakEvent = new BlockEvent.BreakEvent(serverLevel, pos, state, serverPlayer);
-            NeoForge.EVENT_BUS.post(breakEvent);
+            MinecraftForge.EVENT_BUS.post(breakEvent);
             if (breakEvent.isCanceled()) {
                 return false;
             }
         } else {
-            if (!ThrowingDiscConfig.COMMON.cleavingAllowDispenser.get() || !EventHooks.canEntityGrief(serverLevel, this)) {
+            if (!ThrowingDiscConfig.COMMON.cleavingAllowDispenser.get() || !ForgeEventFactory.getMobGriefingEvent(serverLevel, this)) {
                 return false;
             }
         }
 
         BlockEntity blockEntity = state.hasBlockEntity() ? serverLevel.getBlockEntity(pos) : null;
         List<ItemStack> drops = Block.getDrops(state, serverLevel, pos, blockEntity, owner, weaponStack);
-        int xp = state.getExpDrop(serverLevel, pos, blockEntity, owner, weaponStack);
+        int fortune = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_FORTUNE, weaponStack);
+        int silk = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.SILK_TOUCH, weaponStack);
+        int xp = state.getExpDrop(serverLevel, serverLevel.getRandom(), pos, fortune, silk);
 
         boolean removed;
         if (owner instanceof Player player) {
-            BlockState adjusted = state.getBlock().playerWillDestroy(serverLevel, pos, state, player);
+            state.getBlock().playerWillDestroy(serverLevel, pos, state, player);
             serverLevel.levelEvent(2001, pos, Block.getId(state));
-            removed = adjusted.onDestroyedByPlayer(serverLevel, pos, player, true, serverLevel.getFluidState(pos));
+            removed = state.onDestroyedByPlayer(serverLevel, pos, player, true, serverLevel.getFluidState(pos));
             if (removed) {
-                adjusted.getBlock().destroy(serverLevel, pos, adjusted);
+                state.getBlock().destroy(serverLevel, pos, state);
             }
         } else {
             serverLevel.levelEvent(2001, pos, Block.getId(state));
@@ -450,16 +452,16 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
         this.collectFreshSupportDrops(Vec3.atCenterOf(pos), 1.65);
 
-        if (!this.creativePickupOnly && !(owner instanceof Player p && p.hasInfiniteMaterials())) {
+        if (!this.creativePickupOnly && !(owner instanceof Player p && p.getAbilities().instabuild)) {
             ItemStack updated = weaponStack.copy();
             ServerPlayer sp = owner instanceof ServerPlayer serverPlayer ? serverPlayer : null;
-            updated.hurtAndBreak(1, serverLevel, sp, broken -> {});
+            updated.hurt(1, serverLevel.getRandom(), sp);
             this.setItem(updated);
         }
 
         this.blocksBroken++;
 
-        int veinLevel = ModEnchantments.getLevel(serverLevel, this.getItem(), ModEnchantments.VEIN_HARVEST);
+        int veinLevel = ModEnchantments.getLevel(this.getItem(), ModEnchantments.VEIN_HARVEST);
         if (veinLevel > 0 && VeinHarvestHelper.isOre(state)) {
             double veinMaxHardness = Math.max(destroySpeed + 2.0, maxHardness);
             int maxVeinExtra = veinLevel * ThrowingDiscConfig.COMMON.veinHarvestBlocksPerLevel.get();
@@ -481,16 +483,16 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
 
         Entity owner = this.getOwner();
-        boolean infiniteMaterials = this.creativePickupOnly || (owner instanceof Player p && p.hasInfiniteMaterials());
+        boolean creativeOwner = this.creativePickupOnly || (owner instanceof Player p && p.getAbilities().instabuild);
 
-        LongSet visited = new LongOpenHashSet();
+        it.unimi.dsi.fastutil.longs.LongSet visited = new it.unimi.dsi.fastutil.longs.LongOpenHashSet();
         Queue<BlockPos> queue = new ArrayDeque<>();
         visited.add(originPos.asLong());
         queue.add(originPos.immutable());
 
         int chainedCount = 0;
         while (!queue.isEmpty() && chainedCount < maxExtra) {
-            if (!infiniteMaterials && ThrowingDiscItem.isTooDamagedToThrow(this.getItem())) {
+            if (!creativeOwner && ThrowingDiscItem.isTooDamagedToThrow(this.getItem())) {
                 break;
             }
 
@@ -501,7 +503,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                         if (dx == 0 && dy == 0 && dz == 0) {
                             continue;
                         }
-                        if (!infiniteMaterials && ThrowingDiscItem.isTooDamagedToThrow(this.getItem())) {
+                        if (!creativeOwner && ThrowingDiscItem.isTooDamagedToThrow(this.getItem())) {
                             break;
                         }
 
@@ -533,7 +535,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
 
                         ItemStack currentWeapon = this.getItem();
                         if (currentWeapon.getItem() instanceof TieredItem tieredItem
-                            && nextState.is(tieredItem.getTier().getIncorrectBlocksForDrops())) {
+                            && !TierSortingRegistry.isCorrectTierForDrops(tieredItem.getTier(), nextState)) {
                             continue;
                         }
 
@@ -543,29 +545,32 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                                 continue;
                             }
                             BlockEvent.BreakEvent breakEvent = new BlockEvent.BreakEvent(serverLevel, nextPos, nextState, serverPlayer);
-                            NeoForge.EVENT_BUS.post(breakEvent);
+                            MinecraftForge.EVENT_BUS.post(breakEvent);
                             if (breakEvent.isCanceled()) {
                                 continue;
                             }
                         } else {
-                            if (!ThrowingDiscConfig.COMMON.cleavingAllowDispenser.get() || !EventHooks.canEntityGrief(serverLevel, this)) {
+                            if (!ThrowingDiscConfig.COMMON.cleavingAllowDispenser.get()
+                                || !ForgeEventFactory.getMobGriefingEvent(serverLevel, this)) {
                                 continue;
                             }
                         }
 
                         BlockEntity blockEntity = nextState.hasBlockEntity() ? serverLevel.getBlockEntity(nextPos) : null;
                         List<ItemStack> drops = Block.getDrops(nextState, serverLevel, nextPos, blockEntity, owner, currentWeapon);
-                        int xp = nextState.getExpDrop(serverLevel, nextPos, blockEntity, owner, currentWeapon);
+                        int fortune = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.BLOCK_FORTUNE, currentWeapon);
+                        int silk = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.SILK_TOUCH, currentWeapon);
+                        int xp = nextState.getExpDrop(serverLevel, serverLevel.getRandom(), nextPos, fortune, silk);
 
                         boolean removed;
                         if (owner instanceof Player player) {
-                            BlockState adjusted = nextState.getBlock().playerWillDestroy(serverLevel, nextPos, nextState, player);
+                            nextState.getBlock().playerWillDestroy(serverLevel, nextPos, nextState, player);
                             if (chainedCount < 6) {
                                 serverLevel.levelEvent(2001, nextPos, Block.getId(nextState));
                             }
-                            removed = adjusted.onDestroyedByPlayer(serverLevel, nextPos, player, true, serverLevel.getFluidState(nextPos));
+                            removed = nextState.onDestroyedByPlayer(serverLevel, nextPos, player, true, serverLevel.getFluidState(nextPos));
                             if (removed) {
-                                adjusted.getBlock().destroy(serverLevel, nextPos, adjusted);
+                                nextState.getBlock().destroy(serverLevel, nextPos, nextState);
                             }
                         } else {
                             if (chainedCount < 6) {
@@ -579,19 +584,17 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                         }
 
                         serverLevel.gameEvent(GameEvent.BLOCK_DESTROY, nextPos, GameEvent.Context.of(owner, nextState));
-
                         for (ItemStack drop : drops) {
                             this.addCarriedDrop(drop);
                         }
                         if (xp > 0) {
                             this.carriedXp += xp;
                         }
-                        this.collectFreshSupportDrops(Vec3.atCenterOf(nextPos), 1.65);
 
-                        if (!infiniteMaterials) {
+                        if (!creativeOwner) {
                             ItemStack updated = currentWeapon.copy();
                             ServerPlayer sp = owner instanceof ServerPlayer serverPlayer ? serverPlayer : null;
-                            updated.hurtAndBreak(1, serverLevel, sp, broken -> {});
+                            updated.hurt(1, serverLevel.getRandom(), sp);
                             this.setItem(updated);
                         }
 
@@ -603,6 +606,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
 
         if (chainedCount > 0) {
+            this.collectFreshSupportDrops(Vec3.atCenterOf(originPos), 2.5);
             LOGGER.debug("Vein Harvest (thrown) chained {} ore block(s) from {}", chainedCount, originPos);
         }
     }
@@ -613,7 +617,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
         ItemStack remaining = stack.copy();
         for (ItemStack existing : this.carriedDrops) {
-            if (ItemStack.isSameItemSameComponents(existing, remaining) && existing.getCount() < existing.getMaxStackSize()) {
+            if (ItemStack.isSameItemSameTags(existing, remaining) && existing.getCount() < existing.getMaxStackSize()) {
                 int space = existing.getMaxStackSize() - existing.getCount();
                 int move = Math.min(space, remaining.getCount());
                 existing.grow(move);
@@ -660,7 +664,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
         double currentSpeed = this.getDeltaMovement().length();
         double baseReturnSpeed = Math.min(this.initialSpeed, Math.max(this.initialSpeed * 0.6, currentSpeed));
-        int tailwindLevel = ModEnchantments.getLevel(this.level(), this.getItem(), ModEnchantments.TAILWIND);
+        int tailwindLevel = ModEnchantments.getLevel(this.getItem(), ModEnchantments.TAILWIND);
         double returnMult = ThrowingDiscConfig.COMMON.returnSpeedMultiplier.get()
             + tailwindLevel * ThrowingDiscConfig.COMMON.tailwindReturnBonusPerLevel.get();
         this.returnSpeed = Math.max(0.28, baseReturnSpeed * returnMult);
@@ -762,8 +766,15 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                 continue;
             }
 
-            if (rawTarget.getType().is(EntityTypeTags.REDIRECTABLE_PROJECTILE) && rawTarget instanceof Projectile redirectable) {
-                redirectable.deflect(ProjectileDeflection.AIM_DEFLECT, owner, owner, true);
+            if (rawTarget instanceof AbstractHurtingProjectile fireball && fireball.isPickable()) {
+                Vec3 deflectDir = this.getDeltaMovement().lengthSqr() > 1.0E-5
+                    ? this.getDeltaMovement().normalize()
+                    : fireball.getDeltaMovement().scale(-1.0).normalize();
+                fireball.setDeltaMovement(deflectDir.scale(Math.max(0.5, fireball.getDeltaMovement().length())));
+                fireball.xPower = deflectDir.x * 0.1;
+                fireball.yPower = deflectDir.y * 0.1;
+                fireball.zPower = deflectDir.z * 0.1;
+                fireball.setOwner(owner);
                 continue;
             }
 
@@ -773,12 +784,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
             }
             this.hitEntityIds.add(rootIdEntity.getId());
 
-            if (!this.isReturning() && rawTarget.deflection(this) != ProjectileDeflection.NONE) {
-                this.deflectOffEntity(serverLevel, rawTarget, rootIdEntity, contactPos);
-                return true;
-            }
-
-            float damage = this.calculateHitDamage(serverLevel, weaponStack, rawTarget);
+            float damage = this.calculateHitDamage(weaponStack, rawTarget);
             DamageSource damageSource = ModDamageTypes.throwingDisc(serverLevel, this, owner);
 
             if ((this.bounceCount > 0 || this.isReturning()) && rawTarget.invulnerableTime > 0) {
@@ -788,15 +794,16 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
             boolean wasBlocked = rawTarget instanceof LivingEntity blockingLiving && blockingLiving.isDamageSourceBlocked(damageSource);
 
             if (rawTarget.hurt(damageSource, damage)) {
-                EnchantmentHelper.doPostAttackEffectsWithItemSource(serverLevel, rawTarget, damageSource, weaponStack);
+                if (owner instanceof LivingEntity livingOwner) {
+                    if (rawTarget instanceof LivingEntity livingTarget) {
+                        EnchantmentHelper.doPostHurtEffects(livingTarget, livingOwner);
+                    }
+                    EnchantmentHelper.doPostDamageEffects(livingOwner, rawTarget);
+                }
 
-                int fireAspect = serverLevel.registryAccess()
-                    .lookup(Registries.ENCHANTMENT)
-                    .flatMap(lookup -> lookup.get(Enchantments.FIRE_ASPECT))
-                    .map(weaponStack::getEnchantmentLevel)
-                    .orElse(0);
+                int fireAspect = EnchantmentHelper.getItemEnchantmentLevel(Enchantments.FIRE_ASPECT, weaponStack);
                 if (fireAspect > 0) {
-                    rawTarget.igniteForSeconds(4 * fireAspect);
+                    rawTarget.setSecondsOnFire(4 * fireAspect);
                 }
 
                 if (rawTarget instanceof LivingEntity living) {
@@ -829,7 +836,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
                     0.85F,
                     1.25F
                 );
-            } else if (wasBlocked && !this.isReturning()) {
+            } else if ((wasBlocked || rawTarget instanceof Shulker) && !this.isReturning()) {
                 this.deflectOffEntity(serverLevel, rawTarget, rootIdEntity, contactPos);
                 return true;
             }
@@ -903,18 +910,18 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         }
     }
 
-    private float calculateHitDamage(ServerLevel serverLevel, ItemStack weaponStack, Entity target) {
+    private float calculateHitDamage(ItemStack weaponStack, Entity target) {
         float damage = this.baseDamage;
         if (this.isReturning()) {
             damage *= ThrowingDiscConfig.COMMON.returnDamageMultiplier.get().floatValue();
-            int reboundLevel = ModEnchantments.getLevel(serverLevel, weaponStack, ModEnchantments.REBOUND_EDGE);
+            int reboundLevel = ModEnchantments.getLevel(weaponStack, ModEnchantments.REBOUND_EDGE);
             if (reboundLevel > 0) {
                 damage += (float) (reboundLevel * ThrowingDiscConfig.COMMON.reboundEdgeBonusDamagePerLevel.get());
             }
         }
 
         if (this.bounceCount > 0) {
-            int ricochetLevel = ModEnchantments.getLevel(serverLevel, weaponStack, ModEnchantments.RICOCHET);
+            int ricochetLevel = ModEnchantments.getLevel(weaponStack, ModEnchantments.RICOCHET);
             if (ricochetLevel > 0) {
                 double bonusPerBounce = ricochetLevel * ThrowingDiscConfig.COMMON.ricochetBounceDamageBonusPerLevel.get();
                 double mult = Math.min(
@@ -925,16 +932,14 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
             }
         }
 
-        DamageSource damageSource = ModDamageTypes.throwingDisc(serverLevel, this, this.getOwner());
-        return EnchantmentHelper.modifyDamage(serverLevel, weaponStack, target, damageSource, damage);
+        MobType mobType = target instanceof LivingEntity living ? living.getMobType() : MobType.UNDEFINED;
+        damage += EnchantmentHelper.getDamageBonus(weaponStack, mobType);
+        return damage;
     }
 
     private void collectMagneticDropsAlongSegment(Vec3 start, Vec3 end) {
-        if (this.fromDispenser || !(this.level() instanceof ServerLevel)) {
-            return;
-        }
         Entity owner = this.getOwner();
-        if (owner == null) {
+        if (!(owner instanceof Player)) {
             return;
         }
 
@@ -1003,18 +1008,20 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
             return false;
         }
 
-        UUID target = itemEntity.getTarget();
-        if (target != null && !target.equals(owner.getUUID())) {
-            return false;
+        CompoundTag itemTag = new CompoundTag();
+        itemEntity.addAdditionalSaveData(itemTag);
+        if (itemTag.hasUUID("Owner")) {
+            UUID target = itemTag.getUUID("Owner");
+            if (!target.equals(owner.getUUID())) {
+                return false;
+            }
         }
 
         if (itemEntity.hasPickUpDelay()) {
             if (owner.equals(itemEntity.getOwner())) {
                 return false;
             }
-            CompoundTag tag = new CompoundTag();
-            itemEntity.addAdditionalSaveData(tag);
-            short pickupDelay = tag.getShort("PickupDelay");
+            short pickupDelay = itemTag.getShort("PickupDelay");
             if (pickupDelay < 0 || pickupDelay > 15) {
                 return false;
             }
@@ -1122,7 +1129,7 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
 
     private void giveBackToPlayer(Player player) {
         UUID discUuid = this.getUUID();
-        if (this.creativePickupOnly || player.hasInfiniteMaterials()) {
+        if (this.creativePickupOnly || player.getAbilities().instabuild) {
             DiscPlaceholderItem.removeMatchingPlaceholders(player, discUuid);
             this.deliverCarriedLoot(player);
             this.playCatchSound(player);
@@ -1249,13 +1256,13 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
         super.addAdditionalSaveData(tag);
         ItemStack stack = this.getItem();
         if (!stack.isEmpty()) {
-            tag.put("Item", stack.save(this.registryAccess()));
+            tag.put("Item", stack.save(new CompoundTag()));
         }
         if (!this.carriedDrops.isEmpty()) {
             ListTag dropsList = new ListTag();
             for (ItemStack drop : this.carriedDrops) {
                 if (!drop.isEmpty()) {
-                    dropsList.add(drop.save(this.registryAccess()));
+                    dropsList.add(drop.save(new CompoundTag()));
                 }
             }
             tag.put("CarriedDrops", dropsList);
@@ -1280,13 +1287,16 @@ public class ThrownDiscEntity extends Projectile implements ItemSupplier {
     protected void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         if (tag.contains("Item", Tag.TAG_COMPOUND)) {
-            ItemStack.parse(this.registryAccess(), tag.getCompound("Item")).ifPresent(this::setItem);
+            this.setItem(ItemStack.of(tag.getCompound("Item")));
         }
         this.carriedDrops.clear();
         if (tag.contains("CarriedDrops", Tag.TAG_LIST)) {
             ListTag dropsList = tag.getList("CarriedDrops", Tag.TAG_COMPOUND);
             for (int i = 0; i < dropsList.size(); i++) {
-                ItemStack.parse(this.registryAccess(), dropsList.getCompound(i)).ifPresent(this.carriedDrops::add);
+                ItemStack parsed = ItemStack.of(dropsList.getCompound(i));
+                if (!parsed.isEmpty()) {
+                    this.carriedDrops.add(parsed);
+                }
             }
         }
         this.refreshCargoPreview();
