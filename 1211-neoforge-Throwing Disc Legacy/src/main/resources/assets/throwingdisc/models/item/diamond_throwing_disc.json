@@ -1,0 +1,6 @@
+{
+  "parent": "throwingdisc:item/template_throwing_disc",
+  "textures": {
+    "layer0": "throwingdisc:item/diamond_throwing_disc"
+  }
+}

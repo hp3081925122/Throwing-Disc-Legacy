@@ -1,0 +1,26 @@
+.idea/
+*.iml
+*.ipr
+*.iws
+out/
+*.class
+*.log
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+
+.gradle/
+**/.gradle/
+build/
+**/build/
+runs/
+**/runs/
+run/
+**/run/
+.gradletasknamecache
+
+# CurseForge upload cache
+curseforge/release-*/game-versions.json
+curseforge/release-*/upload-response-*.txt
+
+Thumbs.db
+.DS_Store

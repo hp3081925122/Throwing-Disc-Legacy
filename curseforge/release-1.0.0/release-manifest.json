@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "minecraft": "1.21.1",
+      "artifact": "E:\\模组\\发cf的模组\\Throwing Disc Legacy\\1211-neoforge-Throwing Disc Legacy\\build\\libs\\throwingdisc-1.21.1-neoforge-1.0.0.jar",
+      "sha256": "5341af1b7c35343a31022cdef126e5bce6b07c4063eb978981c7eab9b971d7e0",
+      "metadata": {
+        "changelog": "## Initial Release (1.0.0)\n\n- Added 5 tiers of Throwing Discs (Copper, Iron, Golden, Diamond, Netherite) with distinct melee and thrown stats.\n- Implemented solid surface ricochets, shield/entity deflection, multi-target piercing, dispenser launching, and direct steady-speed boomerang return.\n- Added a slot-reserving placeholder item while a disc is in flight so picked-up drops do not occupy your throwing hand.\n- Added 6 custom enchantments: Ricochet, Tailwind, Returning Edge, Magnetic Recall, Cleaving Harvest, and Vein Harvest.\n- Added configurable structure loot injection (Trial Chambers, Village Weaponsmiths, Bastion Treasures, End Cities, Buried Treasures).\n- Added full Startup, Common, and Client configuration options plus Enchantment Descriptions compatibility.\n\n---\n\n## 首个正式版本（1.0.0）\n\n- 新增 5 种材质的投掷圆盘（铜、铁、金、钻石、下界合金），各具独立的近战与投掷属性。\n- 实现坚硬表面弹射、盾牌/实体偏转、多目标穿透、发射器发射，以及从当前位置直线匀速返回手中。\n- 新增投掷防抢手栏位占位物品，防止地面掉落物或带回的战利品占据原手持栏位。\n- 新增 6 个专属附魔：弹射（Ricochet）、疾旋（Tailwind）、回旋斩（Returning Edge）、磁吸召回（Magnetic Recall）、旋刃采掘（Cleaving Harvest）与连锁采集（Vein Harvest）。\n- 支持在试炼密室、村庄武器匠、堡垒遗迹宝藏、末地城与埋藏宝藏箱中生成（可配置开关）。\n- 提供完整的 Startup / Common / Client 配置项，并兼容附魔描述（Enchantment Descriptions）等模组。",
+        "changelogType": "markdown",
+        "displayName": "1.21.1-NeoForge-Throwing Disc Legacy-1.0.0",
+        "gameVersions": [
+          11779,
+          10150,
+          11135,
+          9638,
+          9639
+        ],
+        "releaseType": "release"
+      }
+    }
+  ]
+}

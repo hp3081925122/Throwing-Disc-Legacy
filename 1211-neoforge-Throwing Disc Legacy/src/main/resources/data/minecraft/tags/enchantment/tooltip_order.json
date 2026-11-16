@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "throwingdisc:ricochet",
+    "throwingdisc:tailwind",
+    "throwingdisc:rebound_edge",
+    "throwingdisc:magnetic_catch",
+    "throwingdisc:cleaving_harvest",
+    "throwingdisc:vein_harvest"
+  ]
+}
